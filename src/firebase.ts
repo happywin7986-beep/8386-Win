@@ -99,7 +99,15 @@ async function testConnection() {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+      const isSandbox = typeof window !== 'undefined' && (
+        window.location.hostname.includes('.run.app') || 
+        window.location.hostname.includes('localhost')
+      );
+      if (!isSandbox) {
+        console.error("Please check your Firebase configuration.");
+      } else {
+        console.warn("Firebase loading in offline/preview sandbox mode.");
+      }
     }
   }
 }

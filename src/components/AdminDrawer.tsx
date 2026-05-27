@@ -25,6 +25,7 @@ interface AdminDrawerProps {
   users: User[];
   onAdjustUserPoints: (username: string, nextPoints: number) => void;
   onToggleLockUser: (username: string) => void;
+  onDeleteProduct: (id: number) => void;
 }
 
 export default function AdminDrawer({
@@ -43,6 +44,7 @@ export default function AdminDrawer({
   users = [],
   onAdjustUserPoints,
   onToggleLockUser,
+  onDeleteProduct,
 }: AdminDrawerProps) {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [password, setPassword] = useState('');
@@ -171,7 +173,7 @@ export default function AdminDrawer({
       tag: productFormTag.trim(),
       price: Number(productFormPrice),
       pointsCost: Number(productFormPoints),
-      sold: Number(productFormSold),
+      sold: Math.min(3000000, Number(productFormSold)),
       image: productFormImage,
       prompt: productFormPrompt.trim(),
       description: productFormDescription.trim(),
@@ -549,10 +551,17 @@ export default function AdminDrawer({
                         <input
                           type="number"
                           required
+                          max={3000000}
                           value={productFormSold}
-                          onChange={(e) => setProductFormSold(Number(e.target.value))}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setProductFormSold(val > 3000000 ? 3000000 : val);
+                          }}
                           className="p-2 border border-brand-line bg-white rounded-lg outline-none font-mono"
                         />
+                        <span className="text-[10px] text-brand-muted/80 font-normal">
+                          Tối đa 3.000.000 lượt mua
+                        </span>
                       </label>
                     </div>
 
@@ -784,8 +793,30 @@ export default function AdminDrawer({
                         type="submit"
                         className="flex-1 py-2.5 bg-brand-accent hover:bg-brand-accent-dark text-white font-extrabold rounded-lg shadow cursor-pointer transition-colors text-center"
                       >
-                        {editingProductId === -999 ? 'Thêm Sản Phẩm Mới' : 'Lưu Thay Đổi'}
+                        {editingProductId === -999 ? 'Thêm Gói Mới' : 'Lưu Thay Đổi'}
                       </button>
+
+                      {editingProductId !== -999 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Bạn có chắc chắn muốn xóa gói prompt "${productFormName}" này không?`)) {
+                              onDeleteProduct(editingProductId);
+                              setProductFormMsg('Nhật ký: Đã xóa sản phẩm thành công!');
+                              const remaining = products.filter((p) => p.id !== editingProductId);
+                              if (remaining.length > 0) {
+                                loadProductToForm(remaining[0].id);
+                              } else {
+                                triggerCreateNewProduct();
+                              }
+                            }
+                          }}
+                          className="px-4 py-2.5 bg-brand-danger bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-lg shadow cursor-pointer transition-colors text-center flex items-center justify-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Xóa</span>
+                        </button>
+                      )}
                     </div>
                   </form>
 

@@ -645,6 +645,7 @@ export default function App() {
   const handleSaveProduct = async (prod: Product, isNew: boolean) => {
     const securedProd: Product = {
       ...prod,
+      sold: Math.min(3000000, prod.sold || 0),
       prompt: maskPrompt(prod.prompt),
       articles: prod.articles?.map((art) => ({
         ...art,
@@ -674,6 +675,28 @@ export default function App() {
       );
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `products/${prod.id}`);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: number) => {
+    if (products.length <= 1) {
+      alert('Hệ thống yêu cầu giữ lại ít nhất một sản phẩm!');
+      return;
+    }
+
+    if (!isFirebaseConfigured) {
+      const updatedProds = products.filter((item) => item.id !== productId);
+      setProducts(updatedProds);
+      localStorage.setItem('local_products', JSON.stringify(updatedProds));
+      setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'products', String(productId)));
+      setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `products/${productId}`);
     }
   };
 
@@ -902,6 +925,7 @@ export default function App() {
         users={users}
         onAdjustUserPoints={handleAdjustUserPoints}
         onToggleLockUser={handleToggleLockUser}
+        onDeleteProduct={handleDeleteProduct}
       />
 
       {/* Premium Studio Footer info signature */}
