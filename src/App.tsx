@@ -31,6 +31,7 @@ import Checkout from './components/Checkout';
 import CartDrawer from './components/CartDrawer';
 import AccountDrawer from './components/AccountDrawer';
 import AdminDrawer from './components/AdminDrawer';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 export default function App() {
   // --- Core Persistent States ---
@@ -965,6 +966,7 @@ export default function App() {
           Website Support by MTV OG VN
         </p>
       </footer>
+      <SpeedInsights />
     </div>
   );
 }
