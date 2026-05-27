@@ -443,6 +443,7 @@ export default function AdminDrawer({
                               <img
                                 src={req.receipt}
                                 alt={`Bill ${req.orderCode}`}
+                                referrerPolicy="no-referrer"
                                 className="w-full object-contain max-h-48 rounded"
                               />
                             </div>

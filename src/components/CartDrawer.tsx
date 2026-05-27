@@ -76,6 +76,7 @@ export default function CartDrawer({
                 <img
                   src={item.image}
                   alt={item.name}
+                  referrerPolicy="no-referrer"
                   className="w-16 h-16 object-cover rounded-lg border border-brand-line/80"
                 />
 

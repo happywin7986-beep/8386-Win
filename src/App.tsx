@@ -166,6 +166,8 @@ export default function App() {
           const p = d.data() as Product;
           if (p.id === 7 && (!p.image || p.image.includes('1590246814883-57c511f124fd'))) {
             p.image = 'https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80';
+            setDoc(doc(db, 'products', '7'), { image: 'https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80' }, { merge: true })
+              .catch((e) => console.error('Auto-heal failed:', e));
           }
           prodsList.push(p);
         });

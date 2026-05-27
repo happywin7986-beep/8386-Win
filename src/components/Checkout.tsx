@@ -134,6 +134,7 @@ export default function Checkout({
               <img
                 src={qrDataUrl}
                 alt={`Mã QR ${orderCode}`}
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -284,6 +285,7 @@ export default function Checkout({
               <img
                 src={receiptBase64}
                 alt="Receipt preview"
+                referrerPolicy="no-referrer"
                 className="w-16 h-16 object-cover rounded-lg border border-brand-line"
               />
             </div>
