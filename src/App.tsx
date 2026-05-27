@@ -79,7 +79,18 @@ export default function App() {
       // 2. Load products from localStorage or defaults
       const storedProds = localStorage.getItem('local_products');
       if (storedProds) {
-        setProducts(JSON.parse(storedProds));
+        let parsedList: Product[] = JSON.parse(storedProds);
+        parsedList = parsedList.map((p) => {
+          if (p.id === 7 && (!p.image || p.image.includes('1590246814883-57c511f124fd'))) {
+            return {
+              ...p,
+              image: 'https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80',
+            };
+          }
+          return p;
+        });
+        setProducts(parsedList);
+        localStorage.setItem('local_products', JSON.stringify(parsedList));
       } else {
         const seededProds = defaultProducts.map((p) => ({
           ...p,
@@ -152,7 +163,11 @@ export default function App() {
       } else {
         const prodsList: Product[] = [];
         snapshot.forEach((d) => {
-          prodsList.push(d.data() as Product);
+          const p = d.data() as Product;
+          if (p.id === 7 && (!p.image || p.image.includes('1590246814883-57c511f124fd'))) {
+            p.image = 'https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80';
+          }
+          prodsList.push(p);
         });
         prodsList.sort((a, b) => a.id - b.id);
         setProducts(prodsList);
@@ -669,6 +684,14 @@ export default function App() {
 
     try {
       await setDoc(doc(db, 'products', String(prod.id)), securedProd);
+      // Update state locally instantly to ensure immediate UI synchronization on save
+      setProducts((prev) => {
+        const updated = prev.map((item) => (item.id === prod.id ? securedProd : item));
+        if (!prev.some((item) => item.id === prod.id)) {
+          updated.push(securedProd);
+        }
+        return updated.sort((a, b) => a.id - b.id);
+      });
       // Synchronize current cart prices of matching products
       setCart((prevCart) =>
         prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
@@ -694,6 +717,8 @@ export default function App() {
 
     try {
       await deleteDoc(doc(db, 'products', String(productId)));
+      // Update state locally instantly to ensure immediate UI synchronization on delete
+      setProducts((prev) => prev.filter((item) => item.id !== productId));
       setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `products/${productId}`);

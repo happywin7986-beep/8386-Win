@@ -68,6 +68,7 @@ export default function AdminDrawer({
   
   // Multiple articles support
   const [productFormArticles, setProductFormArticles] = useState<any[]>([]);
+  const [editingArticleIdx, setEditingArticleIdx] = useState<number | null>(null);
   const [articleTitleInput, setArticleTitleInput] = useState('');
   const [articleDescInput, setArticleDescInput] = useState('');
   const [articlePromptInput, setArticlePromptInput] = useState('');
@@ -96,6 +97,12 @@ export default function AdminDrawer({
   // Populate products parameters into editor fields
   const loadProductToForm = (id: number) => {
     setEditingProductId(id);
+    setEditingArticleIdx(null);
+    setArticleTitleInput('');
+    setArticleDescInput('');
+    setArticlePromptInput('');
+    setArticleImageUrlInput('');
+    setArticleVideoUrlInput('');
     const prod = products.find((p) => p.id === id);
     if (prod) {
       setProductFormName(prod.name);
@@ -189,28 +196,31 @@ export default function AdminDrawer({
 
     onSaveProduct(payload, isNew);
     setProductFormMsg('Nhật ký: Đã lưu thông tin sản phẩm thành công!');
-    if (isNew) {
-      // Return selector focus to the newly created asset
+    // Tự động tải lại form để đồng bộ chính xác với master list
+    setTimeout(() => {
       loadProductToForm(resolvedId);
-    }
+    }, 50);
   };
 
   // Create new template setup trigger
   const triggerCreateNewProduct = () => {
     setEditingProductId(-999);
+    setEditingArticleIdx(null);
     setProductFormName('Gói thiết kế mới');
     setProductFormCategory(categories[0]?.slug || 'blackwork');
     setProductFormTag('Custom');
     setProductFormPrice(150000);
     setProductFormPoints(150);
     setProductFormSold(45);
-    setProductFormImage('https://images.unsplash.com/photo-1590246814883-57c511f124fd?auto=format&fit=crop&w=900&q=80');
+    setProductFormImage('https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80');
     setProductFormPrompt('midjourney prompt xăm nghệ thuật ...');
     setProductFormDescription('Mô tả ngắn gọn về gói xăm mới tạo.');
     setProductFormArticles([]);
     setArticleTitleInput('');
     setArticleDescInput('');
     setArticlePromptInput('');
+    setArticleImageUrlInput('');
+    setArticleVideoUrlInput('');
     setProductFormMsg('');
   };
 
@@ -640,41 +650,83 @@ export default function AdminDrawer({
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {productFormArticles.map((art, idx) => (
-                            <div key={idx} className="p-2 bg-white rounded-lg border border-brand-line/50 flex justify-between items-start gap-2 text-[10.5px]">
-                              <div className="space-y-0.5 flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <p className="font-bold text-brand-ink truncate">
-                                    {art.title}
-                                  </p>
-                                  {art.imageUrl && (
-                                    <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">🖼️ Có ảnh</span>
-                                  )}
-                                  {art.videoUrl && (
-                                    <span className="text-[9px] bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded font-black">🎥 Có video</span>
-                                  )}
-                                </div>
-                                <p className="text-brand-muted font-sans truncate text-[10px]">
-                                  {art.description}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setProductFormArticles(productFormArticles.filter((_, i) => i !== idx))}
-                                className="p-1 text-brand-danger bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer shrink-0"
-                                title="Xóa bài viết này"
+                          {productFormArticles.map((art, idx) => {
+                            const isBeingEdited = editingArticleIdx === idx;
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-2 bg-white rounded-lg border flex justify-between items-start gap-2 text-[10.5px] transition-all ${
+                                  isBeingEdited
+                                    ? 'border-brand-accent/85 bg-brand-accent/5 ring-1 ring-brand-accent/30'
+                                    : 'border-brand-line/50'
+                                }`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ))}
+                                <div className="space-y-0.5 flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="font-bold text-brand-ink truncate">
+                                      {art.title}
+                                    </p>
+                                    {isBeingEdited && (
+                                      <span className="text-[8px] bg-brand-accent text-white px-1.5 py-0.5 rounded font-black animate-pulse">
+                                        📝 Đang Sửa
+                                      </span>
+                                    )}
+                                    {art.imageUrl && (
+                                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black">🖼️ Có ảnh</span>
+                                    )}
+                                    {art.videoUrl && (
+                                      <span className="text-[9px] bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded font-black">🎥 Có video</span>
+                                    )}
+                                  </div>
+                                  <p className="text-brand-muted font-sans truncate text-[10px]">
+                                    {art.description}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingArticleIdx(idx);
+                                      setArticleTitleInput(art.title || '');
+                                      setArticleDescInput(art.description || '');
+                                      setArticlePromptInput(art.prompt || '');
+                                      setArticleImageUrlInput(art.imageUrl || '');
+                                      setArticleVideoUrlInput(art.videoUrl || '');
+                                    }}
+                                    className={`p-1 bg-brand-beige hover:bg-brand-accent hover:text-white rounded-md transition-colors cursor-pointer text-brand-ink`}
+                                    title="Sửa bài viết này"
+                                  >
+                                    <FileEdit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (editingArticleIdx === idx) {
+                                        setEditingArticleIdx(null);
+                                        setArticleTitleInput('');
+                                        setArticleDescInput('');
+                                        setArticlePromptInput('');
+                                        setArticleImageUrlInput('');
+                                        setArticleVideoUrlInput('');
+                                      }
+                                      setProductFormArticles(productFormArticles.filter((_, i) => i !== idx));
+                                    }}
+                                    className="p-1 text-brand-danger bg-red-50 hover:bg-red-100 rounded-md transition-colors cursor-pointer"
+                                    title="Xóa bài viết này"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
                       {/* Add article fields segment */}
                       <div className="p-2.5 bg-white rounded-lg border border-brand-line/70 space-y-2.5">
                         <span className="text-[10px] font-extrabold text-brand-ink/90 block">
-                          ➕ Thêm nhanh bài viết/prompt phụ:
+                          {editingArticleIdx !== null ? '📝 Chỉnh sửa bài viết phụ này:' : '➕ Thêm nhanh bài viết/prompt phụ:'}
                         </span>
 
                         <label className="flex flex-col space-y-1 text-[10px] font-bold text-brand-muted">
@@ -761,31 +813,77 @@ export default function AdminDrawer({
                           />
                         </label>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!articleTitleInput.trim()) {
-                              alert('Xin vui lòng nhập tiêu đề cho bài viết phụ!');
-                              return;
-                            }
-                            const newArt = {
-                              title: articleTitleInput.trim(),
-                              description: articleDescInput.trim(),
-                              prompt: articlePromptInput.trim(),
-                              imageUrl: articleImageUrlInput.trim() || undefined,
-                              videoUrl: articleVideoUrlInput.trim() || undefined,
-                            };
-                            setProductFormArticles([...productFormArticles, newArt]);
-                            setArticleTitleInput('');
-                            setArticleDescInput('');
-                            setArticlePromptInput('');
-                            setArticleImageUrlInput('');
-                            setArticleVideoUrlInput('');
-                          }}
-                          className="w-full py-1.5 bg-brand-ink hover:bg-brand-accent text-white font-bold text-[10px] rounded-md transition-colors cursor-pointer flex items-center justify-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Thêm Bài Viết Này Vào Gói
-                        </button>
+                        {editingArticleIdx !== null ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!articleTitleInput.trim()) {
+                                  alert('Xin vui lòng nhập tiêu đề cho bài viết phụ!');
+                                  return;
+                                }
+                                const updatedArticles = [...productFormArticles];
+                                updatedArticles[editingArticleIdx] = {
+                                  title: articleTitleInput.trim(),
+                                  description: articleDescInput.trim(),
+                                  prompt: articlePromptInput.trim(),
+                                  imageUrl: articleImageUrlInput.trim() || undefined,
+                                  videoUrl: articleVideoUrlInput.trim() || undefined,
+                                };
+                                setProductFormArticles(updatedArticles);
+                                setEditingArticleIdx(null);
+                                setArticleTitleInput('');
+                                setArticleDescInput('');
+                                setArticlePromptInput('');
+                                setArticleImageUrlInput('');
+                                setArticleVideoUrlInput('');
+                              }}
+                              className="flex-1 py-1.5 bg-brand-accent hover:bg-brand-accent-dark text-white font-bold text-[10px] rounded-md transition-colors cursor-pointer flex items-center justify-center gap-1"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Lưu Cập Nhật
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingArticleIdx(null);
+                                setArticleTitleInput('');
+                                setArticleDescInput('');
+                                setArticlePromptInput('');
+                                setArticleImageUrlInput('');
+                                setArticleVideoUrlInput('');
+                              }}
+                              className="px-3 py-1.5 bg-brand-line/45 hover:bg-brand-line/60 text-brand-ink font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!articleTitleInput.trim()) {
+                                  alert('Xin vui lòng nhập tiêu đề cho bài viết phụ!');
+                                  return;
+                              }
+                              const newArt = {
+                                title: articleTitleInput.trim(),
+                                description: articleDescInput.trim(),
+                                prompt: articlePromptInput.trim(),
+                                imageUrl: articleImageUrlInput.trim() || undefined,
+                                videoUrl: articleVideoUrlInput.trim() || undefined,
+                              };
+                              setProductFormArticles([...productFormArticles, newArt]);
+                              setArticleTitleInput('');
+                              setArticleDescInput('');
+                              setArticlePromptInput('');
+                              setArticleImageUrlInput('');
+                              setArticleVideoUrlInput('');
+                            }}
+                            className="w-full py-1.5 bg-brand-ink hover:bg-brand-accent text-white font-bold text-[10px] rounded-md transition-colors cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Thêm Bài Viết Này Vào Gói
+                          </button>
+                        )}
                       </div>
                     </div>
 
