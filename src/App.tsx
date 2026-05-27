@@ -825,15 +825,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-brand-beige text-brand-ink selection:bg-brand-accent selection:text-white pb-12 font-sans overflow-x-hidden">
       
-      {!isFirebaseConfigured && (
-        <div className="bg-[#fcedea] border-b border-[#fcd5cd] text-[#b32b12] text-xs font-medium py-2.5 px-4 text-center flex items-center justify-center gap-2 font-sans shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span><strong>Chế độ Xem Thử/Sao Chép Tự Do:</strong> Chức năng bảo mật mã hóa đã sẵn sàng. Bạn có thể dùng ứng dụng và sao chép prompt bình thường. Bấm nút cam <strong>"Set up Firebase"</strong> ở thanh công cụ AI Studio phía trên để đồng bộ hóa cơ sở dữ liệu thực tế!</span>
-        </div>
-      )}
-      
+
       {/* 1. Header segment */}
       <Header
         currentUser={currentUser}
