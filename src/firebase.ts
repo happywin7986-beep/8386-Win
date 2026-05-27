@@ -6,10 +6,43 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+
+// Safely load the firebase-applet-config.json file dynamically if it exists,
+// without causing compilation or bundling errors when the file is missing/deleted.
+let appletConfig: any = {};
+try {
+  const metaObject = import.meta as any;
+  const modules = metaObject.glob('../firebase-applet-config.json', { eager: true });
+  const keys = Object.keys(modules);
+  if (keys.length > 0) {
+    appletConfig = modules[keys[0]].default || modules[keys[0]] || {};
+  }
+} catch (e) {
+  // Graceful fallback
+}
+
+const envObject = (import.meta as any).env || {};
+const configObj = appletConfig || {};
+
+const firebaseConfig = {
+  projectId: envObject.VITE_FIREBASE_PROJECT_ID || configObj.projectId || 'placeholder-id',
+  appId: envObject.VITE_FIREBASE_APP_ID || configObj.appId || 'placeholder-appid',
+  apiKey: envObject.VITE_FIREBASE_API_KEY || configObj.apiKey || 'placeholder-apikey',
+  authDomain: envObject.VITE_FIREBASE_AUTH_DOMAIN || configObj.authDomain || 'placeholder-authdomain',
+  storageBucket: envObject.VITE_FIREBASE_STORAGE_BUCKET || configObj.storageBucket || 'placeholder-bucket',
+  messagingSenderId: envObject.VITE_FIREBASE_MESSAGING_SENDER_ID || configObj.messagingSenderId || 'placeholder-senderid',
+};
+
+// Export whether real Firebase credentials are loaded
+export const isFirebaseConfigured = 
+  firebaseConfig.projectId && 
+  firebaseConfig.apiKey && 
+  !firebaseConfig.projectId.includes('placeholder') &&
+  !firebaseConfig.apiKey.includes('placeholder');
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
+const firestoreDbId = envObject.VITE_FIREBASE_FIRESTORE_DATABASE_ID || configObj.firestoreDatabaseId || undefined;
+export const db = getFirestore(app, firestoreDbId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth();
 
 // --- Firestore Error Handling & Info Logging ---
@@ -71,4 +104,6 @@ async function testConnection() {
   }
 }
 
-testConnection();
+if (isFirebaseConfigured) {
+  testConnection();
+}

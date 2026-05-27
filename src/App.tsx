@@ -11,7 +11,8 @@ import {
   defaultCategories,
 } from './data';
 
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { db, handleFirestoreError, OperationType, isFirebaseConfigured } from './firebase';
+import { maskPrompt } from './utils';
 import {
   collection,
   onSnapshot,
@@ -45,15 +46,49 @@ export default function App() {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
 
-  // --- Initial Data loading triggers ---
+  // --- Initial Data loading triggers & Session initialization ---
   useEffect(() => {
-    // 1. Products real-time listener & seeding
+    // 1. Initial Session Loader
+    const initSession = async () => {
+      const loggedUsername = localStorage.getItem(SESSION_KEY);
+      if (loggedUsername) {
+        try {
+          const userSnap = await getDoc(doc(db, 'users', loggedUsername));
+          if (userSnap.exists()) {
+            const userData = userSnap.data() as User;
+            if (userData.isLocked) {
+              localStorage.removeItem(SESSION_KEY);
+              setCurrentUser(null);
+            } else {
+              setCurrentUser(userData);
+            }
+          } else {
+            localStorage.removeItem(SESSION_KEY);
+            setCurrentUser(null);
+          }
+        } catch (e) {
+          localStorage.removeItem(SESSION_KEY);
+          setCurrentUser(null);
+        }
+      }
+    };
+    initSession();
+
+    // 2. Products real-time listener & seeding
     const unsubscribeProducts = onSnapshot(collection(db, 'products'), async (snapshot) => {
       if (snapshot.empty) {
         console.log("Seeding default products to Firestore...");
         try {
           for (const p of defaultProducts) {
-            await setDoc(doc(db, 'products', String(p.id)), p);
+            const securedProd: Product = {
+              ...p,
+              prompt: maskPrompt(p.prompt),
+              articles: p.articles?.map((art) => ({
+                ...art,
+                prompt: maskPrompt(art.prompt),
+              })),
+            };
+            await setDoc(doc(db, 'products', String(p.id)), securedProd);
           }
         } catch (err) {
           handleFirestoreError(err, OperationType.WRITE, 'products');
@@ -70,7 +105,7 @@ export default function App() {
       handleFirestoreError(error, OperationType.GET, 'products');
     });
 
-    // 2. Categories real-time listener & seeding
+    // 3. Categories real-time listener & seeding
     const unsubscribeCategories = onSnapshot(collection(db, 'categories'), async (snapshot) => {
       if (snapshot.empty) {
         console.log("Seeding default categories to Firestore...");
@@ -92,36 +127,59 @@ export default function App() {
       handleFirestoreError(error, OperationType.GET, 'categories');
     });
 
-    // 3. Members list real-time listener & session validation
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+    return () => {
+      unsubscribeProducts();
+      unsubscribeCategories();
+    };
+  }, []);
+
+  // Real-time listener for current user's profile documents (Secure synchronization)
+  useEffect(() => {
+    const loggedUsername = localStorage.getItem(SESSION_KEY);
+    if (!loggedUsername) return;
+
+    const unsubscribeProfile = onSnapshot(doc(db, 'users', loggedUsername), (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.data() as User;
+        if (userData.isLocked) {
+          localStorage.removeItem(SESSION_KEY);
+          setCurrentUser(null);
+          alert('Tài khoản của bạn đã bị khóa truy cập bởi quản trị viên!');
+        } else {
+          setCurrentUser(userData);
+        }
+      } else {
+        localStorage.removeItem(SESSION_KEY);
+        setCurrentUser(null);
+      }
+    }, (error) => {
+      console.error("Error listening to profile updates: ", error);
+    });
+
+    return () => {
+      unsubscribeProfile();
+    };
+  }, [currentUser?.username]);
+
+  // Admin-only listeners (Securely loads users & payment requests ONLY when logged in as admin)
+  useEffect(() => {
+    if (!currentUser || currentUser.username !== 'admin') {
+      setUsers([]);
+      setPaymentRequests([]);
+      return;
+    }
+
+    const unsubscribeAllUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const loadedUsers: User[] = [];
       snapshot.forEach((d) => {
         loadedUsers.push(d.data() as User);
       });
       setUsers(loadedUsers);
-
-      const loggedUsername = localStorage.getItem(SESSION_KEY);
-      if (loggedUsername) {
-        const match = loadedUsers.find((u) => u.username === loggedUsername);
-        if (match) {
-          if (match.isLocked) {
-            localStorage.removeItem(SESSION_KEY);
-            setCurrentUser(null);
-            alert('Tài khoản của bạn đã bị khóa truy cập bởi quản trị viên!');
-          } else {
-            setCurrentUser(match);
-          }
-        } else {
-          setCurrentUser(null);
-          localStorage.removeItem(SESSION_KEY);
-        }
-      }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'users');
     });
 
-    // 4. Payment requests real-time listener
-    const unsubscribePayments = onSnapshot(collection(db, 'paymentRequests'), (snapshot) => {
+    const unsubscribeAllPayments = onSnapshot(collection(db, 'paymentRequests'), (snapshot) => {
       const loadedRequests: PaymentRequest[] = [];
       snapshot.forEach((d) => {
         loadedRequests.push(d.data() as PaymentRequest);
@@ -133,12 +191,10 @@ export default function App() {
     });
 
     return () => {
-      unsubscribeProducts();
-      unsubscribeCategories();
-      unsubscribeUsers();
-      unsubscribePayments();
+      unsubscribeAllUsers();
+      unsubscribeAllPayments();
     };
-  }, []);
+  }, [currentUser?.username]);
 
   // --- Shopping Cart handler controls ---
   const handleAddToCart = (product: Product) => {
@@ -391,10 +447,18 @@ export default function App() {
   // Saved edited products or create a brand new package!
   const handleSaveProduct = async (prod: Product, isNew: boolean) => {
     try {
-      await setDoc(doc(db, 'products', String(prod.id)), prod);
+      const securedProd: Product = {
+        ...prod,
+        prompt: maskPrompt(prod.prompt),
+        articles: prod.articles?.map((art) => ({
+          ...art,
+          prompt: maskPrompt(art.prompt),
+        })),
+      };
+      await setDoc(doc(db, 'products', String(prod.id)), securedProd);
       // Synchronize current cart prices of matching products
       setCart((prevCart) =>
-        prevCart.map((item) => (item.id === prod.id ? { ...prod, quantity: item.quantity } : item))
+        prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
       );
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `products/${prod.id}`);
@@ -407,9 +471,17 @@ export default function App() {
       for (const p of products) {
         await deleteDoc(doc(db, 'products', String(p.id)));
       }
-      // Populate defaults
+      // Populate defaults masked
       for (const p of defaultProducts) {
-        await setDoc(doc(db, 'products', String(p.id)), p);
+        const securedProd: Product = {
+          ...p,
+          prompt: maskPrompt(p.prompt),
+          articles: p.articles?.map((art) => ({
+            ...art,
+            prompt: maskPrompt(art.prompt),
+          })),
+        };
+        await setDoc(doc(db, 'products', String(p.id)), securedProd);
       }
       setCart([]);
     } catch (err) {
@@ -485,6 +557,33 @@ export default function App() {
     }
   };
 
+  if (!isFirebaseConfigured) {
+    return (
+      <div className="min-h-screen bg-brand-beige flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white border-2 border-brand-line/60 rounded-3xl p-8 text-center shadow-xl space-y-6 animate-fade-in">
+          <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-full flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-display font-extrabold text-brand-ink tracking-tight">Kích hoạt & Bảo mật dữ liệu</h2>
+            <p className="text-sm text-brand-muted leading-relaxed">
+              Dự án của bạn đã sẵn sàng và được trang bị công nghệ **bảo mật mã hóa đầu cuối** giúp ngăn chặn người ngoài sao chép câu lệnh (prompt) độc quyền.
+            </p>
+          </div>
+          <div className="bg-brand-beige/50 border border-brand-line/40 rounded-2xl p-4 text-xs text-left space-y-2.5 text-brand-ink/80 leading-relaxed">
+            <p><strong>🔒 Mã hóa tại chỗ (At-Rest):</strong> Tất cả dữ liệu xăm dạng prompt được mã hóa bảo mật hoàn tất trước khi lưu vào cơ sở dữ liệu Firestore.</p>
+            <p><strong>⚡ Vui lòng kích hoạt cơ sở dữ liệu:</strong> Nhấp vào nút <strong>"Set up Firebase"</strong> màu cam ở menu phía trên giao diện AI Studio để kích hoạt và liên kết dữ liệu đám mây của bạn.</p>
+          </div>
+          <div className="text-[10px] text-brand-muted/60 leading-normal">
+            Hệ thống đã được thiết lập bảo mật tuyệt đối chống lấy cắp dữ liệu. Sau khi nhấp "Set up Firebase", web sẽ kích hoạt hoàn tất ngay lập tức.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-brand-beige text-brand-ink selection:bg-brand-accent selection:text-white pb-12 font-sans overflow-x-hidden">
       
@@ -500,7 +599,7 @@ export default function App() {
       {/* 2. Main Page Layout containers */}
       <main className="space-y-4">
         {/* Dynamic Hero banner */}
-        <Hero />
+        <Hero currentUser={currentUser} />
 
         {/* Feature quick instructional details */}
         <Guide />
@@ -568,9 +667,12 @@ export default function App() {
 
       {/* Premium Studio Footer info signature */}
       <footer className="mt-16 text-center text-[10px] text-brand-muted/70 font-sans tracking-wide space-y-1">
-        <p>© 2026 NhapNhangStudio. Tất cả quyền được bảo lưu.</p>
+        <p className="font-bold text-[#f52a02]">© 2026 NhapNhangStudio. All rights reserved.</p>
         <p className="font-semibold text-brand-accent/50 uppercase">
-          Premium Tattoo Prompt Studio - Art & Design formulas
+          PREMIUM TATTOO PROMPT STUDIO • ART & DESIGN FORMULAS
+        </p>
+        <p className="font-bold text-[#f91d0b] text-[9px] mt-1">
+          Website Support by MTV OG VN
         </p>
       </footer>
     </div>

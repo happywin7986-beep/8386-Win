@@ -33,5 +33,10 @@ service cloud.firestore {
     match /paymentRequests/{paymentRequestId} {
       allow read, write: if true; // Publicly accessible to handle payments creation, listener updates, and admin handling
     }
+
+    // 6. Config collection rules
+    match /config/{configId} {
+      allow read, write: if true;
+    }
   }
 }

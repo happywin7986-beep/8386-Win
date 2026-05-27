@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, Category, PaymentRequest, User } from '../types';
 import { X, Key, ShieldAlert, CheckCircle2, FileEdit, Plus, Trash2, FolderEdit, Undo2, Users, Lock, Unlock, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { formatVND } from '../data';
+import { unmaskPrompt } from '../utils';
 
 interface AdminDrawerProps {
   isOpen: boolean;
@@ -102,9 +103,14 @@ export default function AdminDrawer({
       setProductFormPoints(prod.pointsCost);
       setProductFormSold(prod.sold);
       setProductFormImage(prod.image);
-      setProductFormPrompt(prod.prompt);
+      setProductFormPrompt(unmaskPrompt(prod.prompt));
       setProductFormDescription(prod.description);
-      setProductFormArticles(prod.articles || []);
+      setProductFormArticles(
+        (prod.articles || []).map((art) => ({
+          ...art,
+          prompt: unmaskPrompt(art.prompt),
+        }))
+      );
     }
   };
 

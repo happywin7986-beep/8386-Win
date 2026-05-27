@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Product, Category, User } from '../types';
 import { Search, Tag, Eye, Lock, Unlock, ClipboardCopy, Check, ShoppingCart, Award, X, ExternalLink, Sparkles, Film, Image as ImageIcon } from 'lucide-react';
 import { formatVND } from '../data';
+import { unmaskPrompt } from '../utils';
 
 interface ProductGridProps {
   products: Product[];
@@ -230,7 +231,7 @@ export default function ProductGrid({
                               <div className="p-3 bg-brand-beige rounded-xl border border-brand-line/80 relative group/prompt overflow-hidden text-left space-y-2.5">
                                 <div className="absolute top-2.5 right-2.5 opacity-0 group-hover/prompt:opacity-100 transition-opacity">
                                   <button
-                                    onClick={() => handleCopyPrompt(artCopiedKey, currentArt.prompt)}
+                                    onClick={() => handleCopyPrompt(artCopiedKey, unmaskPrompt(currentArt.prompt))}
                                     type="button"
                                     className="p-1 px-1.5 rounded-md bg-white border border-brand-line shadow-sm hover:text-brand-accent transition-all text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
                                     title="Sao chép câu lệnh"
@@ -304,7 +305,7 @@ export default function ProductGrid({
 
                                 <div className="p-2 bg-white/70 border border-brand-line/35 rounded-lg">
                                   <code className="text-[11px] font-mono font-medium text-brand-ink block whitespace-pre-wrap break-all leading-normal">
-                                    {currentArt.prompt}
+                                    {unmaskPrompt(currentArt.prompt)}
                                   </code>
                                 </div>
                               </div>
@@ -315,7 +316,7 @@ export default function ProductGrid({
                         <div className="p-3 bg-brand-beige rounded-xl border border-brand-line/80 relative group/prompt overflow-hidden text-left">
                           <div className="absolute top-2.5 right-2.5 opacity-0 group-hover/prompt:opacity-100 transition-opacity">
                             <button
-                              onClick={() => handleCopyPrompt(`${p.id}-fallback`, p.prompt)}
+                              onClick={() => handleCopyPrompt(`${p.id}-fallback`, unmaskPrompt(p.prompt))}
                               type="button"
                               className="p-1 px-1.5 rounded-md bg-white border border-brand-line shadow-sm hover:text-brand-accent transition-all text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
                               title="Sao chép câu lệnh"
@@ -337,7 +338,7 @@ export default function ProductGrid({
                             Copy prompt bên dưới:
                           </span>
                           <code className="text-xs font-mono font-medium text-brand-ink block whitespace-pre-wrap pr-4 break-words">
-                            {p.prompt}
+                            {unmaskPrompt(p.prompt)}
                           </code>
                         </div>
                       )
@@ -650,7 +651,7 @@ export default function ProductGrid({
                         </span>
 
                         <button
-                          onClick={() => handleCopyPrompt(modalCopiedKey, currentArt.prompt)}
+                          onClick={() => handleCopyPrompt(modalCopiedKey, unmaskPrompt(currentArt.prompt))}
                           type="button"
                           className="px-3 py-1.5 bg-brand-accent hover:bg-brand-accent/95 text-white text-xs font-black rounded-lg transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5 active:scale-95 text-center"
                         >
@@ -670,7 +671,7 @@ export default function ProductGrid({
 
                       <div className="p-3.5 bg-brand-beige/50 border border-brand-line rounded-xl relative">
                         <code className="text-[12.5px] font-mono text-brand-ink block whitespace-pre-wrap break-all leading-relaxed">
-                          {currentArt.prompt}
+                          {unmaskPrompt(currentArt.prompt)}
                         </code>
                       </div>
                     </div>
