@@ -106,8 +106,8 @@ export default function Checkout({
     generateOrderCode();
   };
 
-  // MB Bank Dynamic API QR generator link
-  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=NHAPNHANGSTUDIO-TRANSFER-CODE-${orderCode}-TOTAL-${totalPrice}`;
+  // MB Bank Dynamic VietQR generator link (using qr_only to fit the clean QR square box beautifully)
+  const qrDataUrl = `https://img.vietqr.io/image/MB-6919092019-qr_only.jpg?amount=${totalPrice}&addInfo=${orderCode}&accountName=TRAN%20HUU%20TAI`;
 
   return (
     <section id="checkout" className="px-6 md:px-12 lg:px-16 py-12 text-brand-ink max-w-7xl mx-auto scrolling-mt">
@@ -144,7 +144,7 @@ export default function Checkout({
               </span>
               <div className="space-y-1 font-sans text-brand-ink/90">
                 <p>Ngân hàng: <strong className="font-semibold text-brand-ink">MB Bank (Quân Đội)</strong></p>
-                <p>Số tài khoản: <strong className="font-semibold text-brand-ink">0971777729</strong></p>
+                <p>Số tài khoản: <strong className="font-semibold text-brand-ink">6919092019</strong></p>
                 <p>Chủ tài khoản: <strong className="font-semibold text-brand-ink">TRAN HUU TAI</strong></p>
                 <p className="pt-2 border-t border-brand-line/50">Mã đơn hàng: <strong className="font-mono text-brand-accent text-sm font-extrabold">{orderCode}</strong></p>
                 <p>Cú pháp CK: <strong className="text-brand-accent text-sm font-mono font-extrabold">{orderCode}</strong></p>
