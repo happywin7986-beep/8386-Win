@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, Category, User } from '../types';
 import { Search, Tag, Eye, Lock, Unlock, ClipboardCopy, Check, ShoppingCart, Award, X, ExternalLink, Sparkles, Film, Image as ImageIcon } from 'lucide-react';
 import { formatVND } from '../data';
@@ -34,6 +34,18 @@ export default function ProductGrid({
   // Modal viewer state for unlocked articles
   const [selectedUnlockedProduct, setSelectedUnlockedProduct] = useState<Product | null>(null);
   const [modalActiveArticleIdx, setModalActiveArticleIdx] = useState<number>(0);
+
+  // Keep the selected unlocked product in sync with the latest parent products state
+  useEffect(() => {
+    if (selectedUnlockedProduct) {
+      const latest = products.find((p) => p.id === selectedUnlockedProduct.id);
+      if (latest) {
+        setSelectedUnlockedProduct(latest);
+      } else {
+        setSelectedUnlockedProduct(null);
+      }
+    }
+  }, [products, selectedUnlockedProduct?.id]);
 
   // Check if current product is unlocked by user
   const isUnlocked = (productId: number) => {

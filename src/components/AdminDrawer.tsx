@@ -116,17 +116,24 @@ export default function AdminDrawer({
     }
   };
 
-  // Sync admin authentication session with global app currentUser
+  // Sync admin login status
   useEffect(() => {
     if (currentUser?.username.toLowerCase() === 'admin') {
       setIsAdminLoggedIn(true);
-      if (products.length > 0) {
-        loadProductToForm(products[0].id);
-      }
     } else {
       setIsAdminLoggedIn(false);
     }
-  }, [currentUser, products]);
+  }, [currentUser]);
+
+  // Initial form loading when drawer opens or admin logs in
+  useEffect(() => {
+    if (isOpen && isAdminLoggedIn && products.length > 0) {
+      const currentExists = products.some((p) => p.id === editingProductId);
+      if (!currentExists && editingProductId !== -999) {
+        loadProductToForm(products[0].id);
+      }
+    }
+  }, [isOpen, isAdminLoggedIn, products, editingProductId]);
 
   if (!isOpen) return null;
 
