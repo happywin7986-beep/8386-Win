@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Phone, MessageSquare, Facebook, ChevronRight, Bookmark } from 'lucide-react';
+import { Phone, MessageSquare, Facebook, ChevronRight, Bookmark, Music, Flame } from 'lucide-react';
+// @ts-ignore
+import nhapnhangBanner from '../assets/images/nhapnhang_banner_1779858504097.png';
 
 export default function Hero() {
   return (
@@ -29,7 +31,7 @@ export default function Hero() {
         </p>
 
         {/* Contact Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full max-w-3xl pt-2">
           {/* Hotline */}
           <a
             href="tel:0971777729"
@@ -87,6 +89,26 @@ export default function Hero() {
               </span>
             </div>
           </a>
+
+          {/* TikTok */}
+          <a
+            href="https://www.tiktok.com/@nhangnhang95"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3 bg-gradient-to-br from-[#222529] to-[#0d0f11] border border-brand-gold/30 rounded-xl hover:border-brand-gold hover:-translate-y-0.5 transition-all text-white shadow-md cursor-pointer group"
+          >
+            <div className="flex-shrink-0 grid w-8.5 h-8.5 place-items-center rounded-full border border-brand-gold/50 text-brand-gold group-hover:scale-110 transition-transform">
+              <Music className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] uppercase tracking-wider font-extrabold text-white/50">
+                TikTok Studio
+              </span>
+              <span className="text-xs font-bold tracking-tight text-white group-hover:text-brand-gold transition-colors truncate">
+                @nhangnhang95
+              </span>
+            </div>
+          </a>
         </div>
 
         {/* Action Link Row */}
@@ -109,11 +131,12 @@ export default function Hero() {
 
       {/* Right Column: Premium prompt preview visual & Daily deal */}
       <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-brand-line/80 group">
-        <div className="relative min-h-[380px] md:min-h-[460px] flex flex-col justify-end p-8 md:p-10 text-white bg-blend-multiply bg-zinc-900/60 overflow-hidden">
+        <div className="relative min-h-[380px] md:min-h-[460px] flex flex-col justify-end p-8 md:p-10 text-[#19fbce] border border-[#f20e0e] bg-blend-multiply bg-zinc-900/60 overflow-hidden">
           {/* Unsplash tattoo backdrop */}
           <img
-            src="https://images.unsplash.com/photo-1565058379802-bbe93b2f703a?auto=format&fit=crop&w=1200&q=80"
+            src={nhapnhangBanner}
             alt="Tattoo artwork preview"
+            referrerPolicy="no-referrer"
             className="absolute inset-0 object-cover w-full h-full -z-10 group-hover:scale-105 transition-transform duration-700"
           />
 
@@ -121,7 +144,7 @@ export default function Hero() {
 
           {/* /imagine details */}
           <div className="space-y-3 z-10">
-            <span className="inline-flex px-3 py-1 text-xs font-extrabold font-mono rounded-lg bg-white/10 border border-white/20 uppercase tracking-widest text-brand-gold">
+            <span className="inline-flex px-3 py-1 text-xs font-extrabold font-mono rounded-lg bg-white/10 border border-white/20 uppercase tracking-widest text-[#e8e8e8]">
               /imagine Prompt
             </span>
 
@@ -129,7 +152,7 @@ export default function Hero() {
               NN STUDIO premium tattoo prompt collection
             </h2>
 
-            <p className="text-sm text-white/80 leading-relaxed max-w-md font-sans">
+            <p className="text-sm text-[#ec8888] leading-relaxed max-w-md font-sans">
               Công thức prompt có cấu trúc chặt chẽ: Chủ thể, style đặc thù, vị trí giải phẫu xăm, chi tiết nét kim rải, cường độ tương phản, và negative prompt chống rác hình.
             </p>
           </div>
@@ -141,7 +164,7 @@ export default function Hero() {
             <Bookmark className="w-3 h-3 text-brand-gold fill-brand-gold" />
             <span>Ưu đãi hôm nay</span>
           </div>
-          <div className="font-display font-extrabold text-lg text-white leading-tight">
+          <div className="font-display font-extrabold text-lg text-[#f71313] leading-tight">
             Gói 120+ Prompt
           </div>
           <p className="text-[10px] text-white/70 leading-normal font-sans">

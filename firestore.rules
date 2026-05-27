@@ -26,12 +26,12 @@ service cloud.firestore {
 
     // 4. Users collection rules
     match /users/{username} {
-      allow read, write: if isValidId(username); // Allow registration, login profile modification
+      allow read, write: if true; // Publicly accessible to support registration, login, and admin listing
     }
 
     // 5. Payment requests collection rules
     match /paymentRequests/{paymentRequestId} {
-      allow read, write: if isValidId(paymentRequestId); // Allow creation and admin approvals
+      allow read, write: if true; // Publicly accessible to handle payments creation, listener updates, and admin handling
     }
   }
 }
