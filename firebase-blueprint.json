@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Tattoo prompt package with multiple sub-articles and assets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "tag": { "type": "string" },
+        "price": { "type": "number" },
+        "pointsCost": { "type": "number" },
+        "sold": { "type": "integer" },
+        "prompt": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "articles": { "type": "array" }
+      },
+      "required": ["id", "name", "category", "tag", "price", "pointsCost", "sold", "prompt", "description", "image"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Category item for navigation and filtering",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "User": {
+      "title": "User",
+      "description": "App member account data with access keys and point balances",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "points": { "type": "integer" },
+        "unlockedProducts": { "type": "array" },
+        "isLocked": { "type": "boolean" }
+      },
+      "required": ["username", "points", "unlockedProducts"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "A top-up request containing point values and receipt invoice validation details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "orderCode": { "type": "string" },
+        "username": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "total": { "type": "number" },
+        "points": { "type": "integer" },
+        "receipt": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderCode", "username", "quantity", "total", "points", "receipt", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Active tattoo prompt packages catalog"
+    },
+    "categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Tattoo style filter categories"
+    },
+    "users/{username}": {
+      "schema": "User",
+      "description": "User profiles database"
+    },
+    "paymentRequests/{paymentRequestId}": {
+      "schema": "PaymentRequest",
+      "description": "Point recharge bank transfer records"
+    }
+  }
+}

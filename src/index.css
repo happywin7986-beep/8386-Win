@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-brand-beige: #f4f1ea;
+  --color-brand-surface: #ffffff;
+  --color-brand-ink: #1e2227;
+  --color-brand-muted: #667085;
+  --color-brand-line: #ddd7ca;
+  --color-brand-accent: #8f1d2c;
+  --color-brand-accent-dark: #64131e;
+  --color-brand-gold: #b8863b;
+  --color-brand-danger: #bf3d35;
+}
+
+/* Custom scrollbar matching the studio mood */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f4f1ea;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5beb1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8f1d2c;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #f4f1ea;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-brand-ink);
+}
+
+.prompt-code-block {
+  font-family: var(--font-mono);
+}
