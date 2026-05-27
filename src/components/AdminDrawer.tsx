@@ -212,7 +212,7 @@ export default function AdminDrawer({
     setProductFormPrice(150000);
     setProductFormPoints(150);
     setProductFormSold(45);
-    setProductFormImage('https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80');
+    setProductFormImage('https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?auto=format&fit=crop&w=900&q=80');
     setProductFormPrompt('midjourney prompt xăm nghệ thuật ...');
     setProductFormDescription('Mô tả ngắn gọn về gói xăm mới tạo.');
     setProductFormArticles([]);

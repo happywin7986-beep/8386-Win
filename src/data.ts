@@ -117,7 +117,7 @@ export const defaultProducts: Product[] = [
     sold: 3910,
     prompt: "dark ornamental tattoo, gothic symmetry, mandala pattern, chest placement, black ink, high contrast stencil --ar 3:4",
     description: "Hoa văn đối xứng, gothic, mandala tối, hợp ngực, lưng và bắp tay.",
-    image: "https://images.unsplash.com/photo-1560707303-4e980c87f847?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?auto=format&fit=crop&w=900&q=80",
   },
   {
     id: 8,
