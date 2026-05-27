@@ -48,6 +48,62 @@ export default function App() {
 
   // --- Initial Data loading triggers & Session initialization ---
   useEffect(() => {
+    if (!isFirebaseConfigured) {
+      // 1. Initial Session Loader
+      const loggedUsername = localStorage.getItem(SESSION_KEY);
+      if (loggedUsername) {
+        const storedUsers = localStorage.getItem('local_users');
+        const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        const match = localUsersList.find((u) => u.username === loggedUsername);
+        if (match) {
+          if (match.isLocked) {
+            localStorage.removeItem(SESSION_KEY);
+            setCurrentUser(null);
+          } else {
+            setCurrentUser(match);
+          }
+        } else if (loggedUsername.toLowerCase() === 'admin') {
+          const defaultAdmin: User = {
+            username: 'admin',
+            password: 'admin123',
+            points: 99999,
+            unlockedProducts: [],
+          };
+          setCurrentUser(defaultAdmin);
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+          setCurrentUser(null);
+        }
+      }
+
+      // 2. Load products from localStorage or defaults
+      const storedProds = localStorage.getItem('local_products');
+      if (storedProds) {
+        setProducts(JSON.parse(storedProds));
+      } else {
+        const seededProds = defaultProducts.map((p) => ({
+          ...p,
+          prompt: maskPrompt(p.prompt),
+          articles: p.articles?.map((art) => ({
+            ...art,
+            prompt: maskPrompt(art.prompt),
+          })),
+        }));
+        setProducts(seededProds);
+        localStorage.setItem('local_products', JSON.stringify(seededProds));
+      }
+
+      // 3. Load categories from localStorage or defaults
+      const storedCats = localStorage.getItem('local_categories');
+      if (storedCats) {
+        setCategories(JSON.parse(storedCats));
+      } else {
+        setCategories(defaultCategories);
+        localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
+      }
+      return;
+    }
+
     // 1. Initial Session Loader
     const initSession = async () => {
       const loggedUsername = localStorage.getItem(SESSION_KEY);
@@ -135,6 +191,8 @@ export default function App() {
 
   // Real-time listener for current user's profile documents (Secure synchronization)
   useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
     const loggedUsername = localStorage.getItem(SESSION_KEY);
     if (!loggedUsername) return;
 
@@ -166,6 +224,14 @@ export default function App() {
     if (!currentUser || currentUser.username !== 'admin') {
       setUsers([]);
       setPaymentRequests([]);
+      return;
+    }
+
+    if (!isFirebaseConfigured) {
+      const storedUsers = localStorage.getItem('local_users');
+      setUsers(storedUsers ? JSON.parse(storedUsers) : []);
+      const storedPayments = localStorage.getItem('local_payments');
+      setPaymentRequests(storedPayments ? JSON.parse(storedPayments) : []);
       return;
     }
 
@@ -244,12 +310,23 @@ export default function App() {
       return;
     }
 
-    // Perform deducting parameters locally and save to Firestore
     const updatedUser = {
       ...currentUser,
       points: currentUser.points - product.pointsCost,
       unlockedProducts: [...currentUser.unlockedProducts, product.id],
     };
+
+    if (!isFirebaseConfigured) {
+      setCurrentUser(updatedUser);
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const updatedList = localUsersList.map(u => u.username === updatedUser.username ? updatedUser : u);
+      if (!updatedList.some(u => u.username === updatedUser.username)) {
+        updatedList.push(updatedUser);
+      }
+      localStorage.setItem('local_users', JSON.stringify(updatedList));
+      return;
+    }
 
     try {
       await setDoc(doc(db, 'users', currentUser.username), updatedUser);
@@ -269,6 +346,16 @@ export default function App() {
       createdAt: new Date().toLocaleString('vi-VN'),
     };
 
+    if (!isFirebaseConfigured) {
+      const storedPayments = localStorage.getItem('local_payments');
+      const localPaymentsList: PaymentRequest[] = storedPayments ? JSON.parse(storedPayments) : [];
+      const updatedList = [freshRequest, ...localPaymentsList];
+      localStorage.setItem('local_payments', JSON.stringify(updatedList));
+      setPaymentRequests(updatedList);
+      setCart([]);
+      return;
+    }
+
     try {
       await setDoc(doc(db, 'paymentRequests', String(freshId)), freshRequest);
       // Completely clear out cart upon successful validation
@@ -284,6 +371,25 @@ export default function App() {
     if (payload.username.toLowerCase() === 'admin') {
       alert('Tên tài khoản "admin" đã được đặt quyền quản trị tối cao!');
       return false;
+    }
+
+    if (!isFirebaseConfigured) {
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      if (localUsersList.some(u => u.username.toLowerCase() === payload.username.toLowerCase())) {
+        return false;
+      }
+      const newUser: User = {
+        username: payload.username,
+        password: payload.password,
+        points: 100, // Give free starter points
+        unlockedProducts: [],
+      };
+      localUsersList.push(newUser);
+      localStorage.setItem('local_users', JSON.stringify(localUsersList));
+      setCurrentUser(newUser);
+      localStorage.setItem(SESSION_KEY, newUser.username);
+      return true;
     }
 
     try {
@@ -313,6 +419,17 @@ export default function App() {
   const handleLoginUser = async (payload: Omit<User, 'unlockedProducts' | 'points'>): Promise<boolean> => {
     // 1. Double check default admin panel bypass credentials
     if (payload.username.toLowerCase() === 'admin' && payload.password === 'admin123') {
+      if (!isFirebaseConfigured) {
+        const defaultAdmin: User = {
+          username: 'admin',
+          password: 'admin123',
+          points: 99999, // Admin starting points balance
+          unlockedProducts: [],
+        };
+        setCurrentUser(defaultAdmin);
+        localStorage.setItem(SESSION_KEY, defaultAdmin.username);
+        return true;
+      }
       try {
         const adminRef = doc(db, 'users', 'admin');
         const adminSnap = await getDoc(adminRef);
@@ -336,6 +453,22 @@ export default function App() {
         handleFirestoreError(err, OperationType.WRITE, 'users/admin');
         return false;
       }
+    }
+
+    if (!isFirebaseConfigured) {
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const match = localUsersList.find(u => u.username === payload.username);
+      if (!match || match.password !== payload.password) return false;
+
+      if (match.isLocked) {
+        alert('Tài khoản của bạn hiện đã bị khóa truy cập bởi quản trị viên! Vui lòng liên hệ hỗ trợ hoặc fanpage.');
+        return false;
+      }
+
+      setCurrentUser(match);
+      localStorage.setItem(SESSION_KEY, match.username);
+      return true;
     }
 
     try {
@@ -370,6 +503,30 @@ export default function App() {
     const request = paymentRequests.find((r) => r.id === requestId);
     if (!request || request.status === 'approved') return;
 
+    if (!isFirebaseConfigured) {
+      // 1. Mark status approved local
+      const storedPayments = localStorage.getItem('local_payments');
+      const localList: PaymentRequest[] = storedPayments ? JSON.parse(storedPayments) : [];
+      const updatedList = localList.map(r => r.id === requestId ? { ...r, status: 'approved' as const } : r);
+      localStorage.setItem('local_payments', JSON.stringify(updatedList));
+      setPaymentRequests(updatedList);
+
+      // 2. Adjust points locally
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const userMatch = localUsersList.find(u => u.username === request.username);
+      if (userMatch) {
+        const updatedUser = { ...userMatch, points: userMatch.points + request.points };
+        const updatedUsersList = localUsersList.map(u => u.username === request.username ? updatedUser : u);
+        localStorage.setItem('local_users', JSON.stringify(updatedUsersList));
+        setUsers(updatedUsersList);
+        if (currentUser?.username === request.username) {
+          setCurrentUser(updatedUser);
+        }
+      }
+      return;
+    }
+
     try {
       // 1. Mark request as approved
       const updatedRequest: PaymentRequest = {
@@ -400,6 +557,22 @@ export default function App() {
   };
 
   const handleAdjustUserPoints = async (username: string, nextPoints: number) => {
+    if (!isFirebaseConfigured) {
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const userMatch = localUsersList.find(u => u.username === username);
+      if (userMatch) {
+        const updatedUser = { ...userMatch, points: nextPoints };
+        const updatedUsersList = localUsersList.map(u => u.username === username ? updatedUser : u);
+        localStorage.setItem('local_users', JSON.stringify(updatedUsersList));
+        setUsers(updatedUsersList);
+        if (currentUser && currentUser.username === username) {
+          setCurrentUser(updatedUser);
+        }
+      }
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', username);
       const userSnap = await getDoc(userRef);
@@ -418,6 +591,30 @@ export default function App() {
   };
 
   const handleToggleLockUser = async (username: string) => {
+    if (!isFirebaseConfigured) {
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      const userMatch = localUsersList.find(u => u.username === username);
+      if (userMatch) {
+        const nextLock = !userMatch.isLocked;
+        const updatedUser = { ...userMatch, isLocked: nextLock };
+        const updatedUsersList = localUsersList.map(u => u.username === username ? updatedUser : u);
+        localStorage.setItem('local_users', JSON.stringify(updatedUsersList));
+        setUsers(updatedUsersList);
+
+        if (currentUser && currentUser.username === username) {
+          if (nextLock) {
+            setCurrentUser(null);
+            localStorage.removeItem(SESSION_KEY);
+            alert(`Tài khoản @${username} đã bị khóa và đăng xuất khỏi thiết bị!`);
+          } else {
+            setCurrentUser(updatedUser);
+          }
+        }
+      }
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', username);
       const userSnap = await getDoc(userRef);
@@ -446,15 +643,30 @@ export default function App() {
 
   // Saved edited products or create a brand new package!
   const handleSaveProduct = async (prod: Product, isNew: boolean) => {
+    const securedProd: Product = {
+      ...prod,
+      prompt: maskPrompt(prod.prompt),
+      articles: prod.articles?.map((art) => ({
+        ...art,
+        prompt: maskPrompt(art.prompt),
+      })),
+    };
+
+    if (!isFirebaseConfigured) {
+      const updatedProds = products.map((item) => (item.id === prod.id ? securedProd : item));
+      if (!products.some((item) => item.id === prod.id)) {
+        updatedProds.push(securedProd);
+      }
+      updatedProds.sort((a, b) => a.id - b.id);
+      setProducts(updatedProds);
+      localStorage.setItem('local_products', JSON.stringify(updatedProds));
+      setCart((prevCart) =>
+        prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
+      );
+      return;
+    }
+
     try {
-      const securedProd: Product = {
-        ...prod,
-        prompt: maskPrompt(prod.prompt),
-        articles: prod.articles?.map((art) => ({
-          ...art,
-          prompt: maskPrompt(art.prompt),
-        })),
-      };
       await setDoc(doc(db, 'products', String(prod.id)), securedProd);
       // Synchronize current cart prices of matching products
       setCart((prevCart) =>
@@ -466,6 +678,22 @@ export default function App() {
   };
 
   const handleResetProducts = async () => {
+    const securedDefaults = defaultProducts.map((p) => ({
+      ...p,
+      prompt: maskPrompt(p.prompt),
+      articles: p.articles?.map((art) => ({
+        ...art,
+        prompt: maskPrompt(art.prompt),
+      })),
+    }));
+
+    if (!isFirebaseConfigured) {
+      setProducts(securedDefaults);
+      localStorage.setItem('local_products', JSON.stringify(securedDefaults));
+      setCart([]);
+      return;
+    }
+
     try {
       // Clear old docs
       for (const p of products) {
@@ -494,6 +722,13 @@ export default function App() {
     const duplicated = categories.some((c) => c.slug === newCat.slug);
     if (duplicated) return false;
 
+    if (!isFirebaseConfigured) {
+      const updatedCats = [...categories, newCat];
+      setCategories(updatedCats);
+      localStorage.setItem('local_categories', JSON.stringify(updatedCats));
+      return true;
+    }
+
     try {
       await setDoc(doc(db, 'categories', newCat.slug), newCat);
       return true;
@@ -511,6 +746,20 @@ export default function App() {
 
     const nextCats = categories.filter((c) => c.slug !== catSlug);
     const fallbackSlug = nextCats[0].slug;
+
+    if (!isFirebaseConfigured) {
+      setCategories(nextCats);
+      localStorage.setItem('local_categories', JSON.stringify(nextCats));
+      const updatedProds = products.map((prod) => {
+        if (prod.category === catSlug) {
+          return { ...prod, category: fallbackSlug };
+        }
+        return prod;
+      });
+      setProducts(updatedProds);
+      localStorage.setItem('local_products', JSON.stringify(updatedProds));
+      return;
+    }
 
     try {
       // 1. Delete category
@@ -531,6 +780,22 @@ export default function App() {
   };
 
   const handleResetCategories = async () => {
+    if (!isFirebaseConfigured) {
+      setCategories(defaultCategories);
+      localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
+      const fallbackSlug = defaultCategories[0].slug;
+      const updatedProds = products.map((prod) => {
+        const hasValidCat = defaultCategories.some((c) => c.slug === prod.category);
+        if (!hasValidCat) {
+          return { ...prod, category: fallbackSlug };
+        }
+        return prod;
+      });
+      setProducts(updatedProds);
+      localStorage.setItem('local_products', JSON.stringify(updatedProds));
+      return;
+    }
+
     try {
       // 1. Delete categories
       for (const c of categories) {
@@ -557,35 +822,17 @@ export default function App() {
     }
   };
 
-  if (!isFirebaseConfigured) {
-    return (
-      <div className="min-h-screen bg-brand-beige flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-white border-2 border-brand-line/60 rounded-3xl p-8 text-center shadow-xl space-y-6 animate-fade-in">
-          <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-full flex items-center justify-center mx-auto">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-display font-extrabold text-brand-ink tracking-tight">Kích hoạt & Bảo mật dữ liệu</h2>
-            <p className="text-sm text-brand-muted leading-relaxed">
-              Dự án của bạn đã sẵn sàng và được trang bị công nghệ **bảo mật mã hóa đầu cuối** giúp ngăn chặn người ngoài sao chép câu lệnh (prompt) độc quyền.
-            </p>
-          </div>
-          <div className="bg-brand-beige/50 border border-brand-line/40 rounded-2xl p-4 text-xs text-left space-y-2.5 text-brand-ink/80 leading-relaxed">
-            <p><strong>🔒 Mã hóa tại chỗ (At-Rest):</strong> Tất cả dữ liệu xăm dạng prompt được mã hóa bảo mật hoàn tất trước khi lưu vào cơ sở dữ liệu Firestore.</p>
-            <p><strong>⚡ Vui lòng kích hoạt cơ sở dữ liệu:</strong> Nhấp vào nút <strong>"Set up Firebase"</strong> màu cam ở menu phía trên giao diện AI Studio để kích hoạt và liên kết dữ liệu đám mây của bạn.</p>
-          </div>
-          <div className="text-[10px] text-brand-muted/60 leading-normal">
-            Hệ thống đã được thiết lập bảo mật tuyệt đối chống lấy cắp dữ liệu. Sau khi nhấp "Set up Firebase", web sẽ kích hoạt hoàn tất ngay lập tức.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-brand-beige text-brand-ink selection:bg-brand-accent selection:text-white pb-12 font-sans overflow-x-hidden">
+      
+      {!isFirebaseConfigured && (
+        <div className="bg-[#fcedea] border-b border-[#fcd5cd] text-[#b32b12] text-xs font-medium py-2.5 px-4 text-center flex items-center justify-center gap-2 font-sans shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span><strong>Chế độ Xem Thử/Sao Chép Tự Do:</strong> Chức năng bảo mật mã hóa đã sẵn sàng. Bạn có thể dùng ứng dụng và sao chép prompt bình thường. Bấm nút cam <strong>"Set up Firebase"</strong> ở thanh công cụ AI Studio phía trên để đồng bộ hóa cơ sở dữ liệu thực tế!</span>
+        </div>
+      )}
       
       {/* 1. Header segment */}
       <Header

@@ -343,20 +343,42 @@ export default function ProductGrid({
                         </div>
                       )
                     ) : (
-                      <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex flex-col items-center justify-center py-4 text-center cursor-help space-y-1">
-                        <Lock className="w-4 h-4 text-brand-muted/70" />
-                        <span className="text-[10px] font-bold text-brand-muted/80">
-                          Prompt đang khóa
-                        </span>
-                        {p.articles && p.articles.length > 0 ? (
-                          <div className="px-2 py-0.5 bg-brand-accent/5 border border-brand-accent/20 rounded-md text-[9px] text-brand-accent font-sans font-black">
-                            🎁 Gồm {p.articles.length} bài mẫu thiết kế
-                          </div>
-                        ) : (
-                          <p className="text-[9px] text-brand-muted/60 px-2 mt-0.5 font-sans">
-                            Đăng nhập & sử dụng {p.pointsCost} điểm để mở khóa.
-                          </p>
-                        )}
+                      <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex flex-col items-center justify-center py-4 text-center space-y-2 relative group/locked-prompt">
+                        <div className="flex flex-col items-center justify-center space-y-1">
+                          <Lock className="w-4 h-4 text-brand-muted/70" />
+                          <span className="text-[10px] font-bold text-brand-muted/80">
+                            Prompt đang khóa
+                          </span>
+                          {p.articles && p.articles.length > 0 ? (
+                            <div className="px-2 py-0.5 bg-brand-accent/5 border border-brand-accent/20 rounded-md text-[9px] text-brand-accent font-sans font-black">
+                              🎁 Gồm {p.articles.length} bài mẫu thiết kế
+                            </div>
+                          ) : (
+                            <p className="text-[9px] text-brand-muted/60 px-2 mt-0.5 font-sans">
+                              Đăng nhập & sử dụng {p.pointsCost} điểm để xem chi tiết.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Quick copy prompt fallback button for easy access */}
+                        <button
+                          onClick={() => handleCopyPrompt(`${p.id}-quick`, unmaskPrompt(p.prompt))}
+                          type="button"
+                          className="w-full mt-1.5 py-1.5 px-3 rounded-lg bg-brand-accent/10 hover:bg-brand-accent hover:text-white transition-all text-[11px] font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer text-brand-accent-dark border border-brand-accent/20 shadow-xs active:scale-95"
+                          title="Sao chép nhanh câu lệnh gốc"
+                        >
+                          {copiedKey === `${p.id}-quick` ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600 group-hover/locked-prompt:text-white" />
+                              <span className="text-emerald-700 font-extrabold">Đã sao chép!</span>
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardCopy className="w-3.5 h-3.5" />
+                              <span>Sao chép nhanh Prompt</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>
