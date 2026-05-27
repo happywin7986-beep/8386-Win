@@ -670,34 +670,23 @@ export default function App() {
       })),
     };
 
+    const updatedProds = products.map((item) => (item.id === prod.id ? securedProd : item));
+    if (!products.some((item) => item.id === prod.id)) {
+      updatedProds.push(securedProd);
+    }
+    updatedProds.sort((a, b) => a.id - b.id);
+    setProducts(updatedProds);
+    localStorage.setItem('local_products', JSON.stringify(updatedProds));
+    setCart((prevCart) =>
+      prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
+    );
+
     if (!isFirebaseConfigured) {
-      const updatedProds = products.map((item) => (item.id === prod.id ? securedProd : item));
-      if (!products.some((item) => item.id === prod.id)) {
-        updatedProds.push(securedProd);
-      }
-      updatedProds.sort((a, b) => a.id - b.id);
-      setProducts(updatedProds);
-      localStorage.setItem('local_products', JSON.stringify(updatedProds));
-      setCart((prevCart) =>
-        prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
-      );
       return;
     }
 
     try {
       await setDoc(doc(db, 'products', String(prod.id)), securedProd);
-      // Update state locally instantly to ensure immediate UI synchronization on save
-      setProducts((prev) => {
-        const updated = prev.map((item) => (item.id === prod.id ? securedProd : item));
-        if (!prev.some((item) => item.id === prod.id)) {
-          updated.push(securedProd);
-        }
-        return updated.sort((a, b) => a.id - b.id);
-      });
-      // Synchronize current cart prices of matching products
-      setCart((prevCart) =>
-        prevCart.map((item) => (item.id === prod.id ? { ...securedProd, quantity: item.quantity } : item))
-      );
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `products/${prod.id}`);
     }
@@ -709,19 +698,17 @@ export default function App() {
       return;
     }
 
+    const updatedProds = products.filter((item) => item.id !== productId);
+    setProducts(updatedProds);
+    localStorage.setItem('local_products', JSON.stringify(updatedProds));
+    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+
     if (!isFirebaseConfigured) {
-      const updatedProds = products.filter((item) => item.id !== productId);
-      setProducts(updatedProds);
-      localStorage.setItem('local_products', JSON.stringify(updatedProds));
-      setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
       return;
     }
 
     try {
       await deleteDoc(doc(db, 'products', String(productId)));
-      // Update state locally instantly to ensure immediate UI synchronization on delete
-      setProducts((prev) => prev.filter((item) => item.id !== productId));
-      setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `products/${productId}`);
     }
@@ -737,10 +724,11 @@ export default function App() {
       })),
     }));
 
+    setProducts(securedDefaults);
+    localStorage.setItem('local_products', JSON.stringify(securedDefaults));
+    setCart([]);
+
     if (!isFirebaseConfigured) {
-      setProducts(securedDefaults);
-      localStorage.setItem('local_products', JSON.stringify(securedDefaults));
-      setCart([]);
       return;
     }
 
@@ -761,7 +749,6 @@ export default function App() {
         };
         await setDoc(doc(db, 'products', String(p.id)), securedProd);
       }
-      setCart([]);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'products');
     }
@@ -772,10 +759,11 @@ export default function App() {
     const duplicated = categories.some((c) => c.slug === newCat.slug);
     if (duplicated) return false;
 
+    const updatedCats = [...categories, newCat];
+    setCategories(updatedCats);
+    localStorage.setItem('local_categories', JSON.stringify(updatedCats));
+
     if (!isFirebaseConfigured) {
-      const updatedCats = [...categories, newCat];
-      setCategories(updatedCats);
-      localStorage.setItem('local_categories', JSON.stringify(updatedCats));
       return true;
     }
 
@@ -797,17 +785,18 @@ export default function App() {
     const nextCats = categories.filter((c) => c.slug !== catSlug);
     const fallbackSlug = nextCats[0].slug;
 
+    setCategories(nextCats);
+    localStorage.setItem('local_categories', JSON.stringify(nextCats));
+    const updatedProds = products.map((prod) => {
+      if (prod.category === catSlug) {
+        return { ...prod, category: fallbackSlug };
+      }
+      return prod;
+    });
+    setProducts(updatedProds);
+    localStorage.setItem('local_products', JSON.stringify(updatedProds));
+
     if (!isFirebaseConfigured) {
-      setCategories(nextCats);
-      localStorage.setItem('local_categories', JSON.stringify(nextCats));
-      const updatedProds = products.map((prod) => {
-        if (prod.category === catSlug) {
-          return { ...prod, category: fallbackSlug };
-        }
-        return prod;
-      });
-      setProducts(updatedProds);
-      localStorage.setItem('local_products', JSON.stringify(updatedProds));
       return;
     }
 
@@ -830,19 +819,20 @@ export default function App() {
   };
 
   const handleResetCategories = async () => {
+    const fallbackSlug = defaultCategories[0].slug;
+    setCategories(defaultCategories);
+    localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
+    const updatedProds = products.map((prod) => {
+      const hasValidCat = defaultCategories.some((c) => c.slug === prod.category);
+      if (!hasValidCat) {
+        return { ...prod, category: fallbackSlug };
+      }
+      return prod;
+    });
+    setProducts(updatedProds);
+    localStorage.setItem('local_products', JSON.stringify(updatedProds));
+
     if (!isFirebaseConfigured) {
-      setCategories(defaultCategories);
-      localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
-      const fallbackSlug = defaultCategories[0].slug;
-      const updatedProds = products.map((prod) => {
-        const hasValidCat = defaultCategories.some((c) => c.slug === prod.category);
-        if (!hasValidCat) {
-          return { ...prod, category: fallbackSlug };
-        }
-        return prod;
-      });
-      setProducts(updatedProds);
-      localStorage.setItem('local_products', JSON.stringify(updatedProds));
       return;
     }
 
@@ -857,7 +847,6 @@ export default function App() {
       }
 
       // 3. Remap products if their category went missing
-      const fallbackSlug = defaultCategories[0].slug;
       for (const prod of products) {
         const hasValidCat = defaultCategories.some((c) => c.slug === prod.category);
         if (!hasValidCat) {

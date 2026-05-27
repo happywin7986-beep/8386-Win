@@ -123,6 +123,8 @@ export default function AdminDrawer({
     }
   };
 
+  const [lastLoadedId, setLastLoadedId] = useState<number | null>(null);
+
   // Sync admin login status
   useEffect(() => {
     if (currentUser?.username.toLowerCase() === 'admin') {
@@ -135,12 +137,20 @@ export default function AdminDrawer({
   // Initial form loading when drawer opens or admin logs in
   useEffect(() => {
     if (isOpen && isAdminLoggedIn && products.length > 0) {
-      const currentExists = products.some((p) => p.id === editingProductId);
-      if (!currentExists && editingProductId !== -999) {
+      if (editingProductId === -999) return;
+      
+      const exists = products.some((p) => p.id === editingProductId);
+      if (!exists) {
         loadProductToForm(products[0].id);
+        setLastLoadedId(products[0].id);
+      } else if (lastLoadedId !== editingProductId || !productFormName) {
+        loadProductToForm(editingProductId);
+        setLastLoadedId(editingProductId);
       }
+    } else if (!isOpen) {
+      setLastLoadedId(null);
     }
-  }, [isOpen, isAdminLoggedIn, products, editingProductId]);
+  }, [isOpen, isAdminLoggedIn, products, editingProductId, lastLoadedId, productFormName]);
 
   if (!isOpen) return null;
 
