@@ -49,69 +49,133 @@ export default function App() {
   // --- Initial Data loading triggers & Session initialization ---
   useEffect(() => {
     if (!isFirebaseConfigured) {
-      // 1. Initial Session Loader
-      const loggedUsername = localStorage.getItem(SESSION_KEY);
-      if (loggedUsername) {
-        const storedUsers = localStorage.getItem('local_users');
-        const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
-        const match = localUsersList.find((u) => u.username === loggedUsername);
-        if (match) {
-          if (match.isLocked) {
-            localStorage.removeItem(SESSION_KEY);
-            setCurrentUser(null);
+      // Fetch full server DB state on boot
+      fetch('/api/db')
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((dbData) => {
+          // Sync with server DB state
+          if (dbData.products && dbData.products.length > 0) {
+            setProducts(dbData.products);
+            localStorage.setItem('local_products', JSON.stringify(dbData.products));
+          }
+          if (dbData.categories && dbData.categories.length > 0) {
+            setCategories(dbData.categories);
+            localStorage.setItem('local_categories', JSON.stringify(dbData.categories));
+          }
+          if (dbData.paymentRequests) {
+            setPaymentRequests(dbData.paymentRequests);
+            localStorage.setItem('local_payments', JSON.stringify(dbData.paymentRequests));
+          }
+          if (dbData.users) {
+            setUsers(dbData.users);
+            localStorage.setItem('local_users', JSON.stringify(dbData.users));
+            
+            // Handle session matching
+            const loggedUsername = localStorage.getItem(SESSION_KEY);
+            if (loggedUsername) {
+              const match = dbData.users.find((u: User) => u.username === loggedUsername);
+              if (match) {
+                if (match.isLocked) {
+                  localStorage.removeItem(SESSION_KEY);
+                  setCurrentUser(null);
+                } else {
+                  setCurrentUser(match);
+                }
+              } else if (loggedUsername.toLowerCase() === 'admin') {
+                const existingAdmin = dbData.users.find((u: User) => u.username.toLowerCase() === 'admin');
+                if (existingAdmin) {
+                  setCurrentUser(existingAdmin);
+                }
+              } else {
+                localStorage.removeItem(SESSION_KEY);
+                setCurrentUser(null);
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Backend server database API not available yet, falling back to local files...', err);
+          
+          // 1. Fallback Session Loader
+          const loggedUsername = localStorage.getItem(SESSION_KEY);
+          if (loggedUsername) {
+            const storedUsers = localStorage.getItem('local_users');
+            const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+            const match = localUsersList.find((u) => u.username === loggedUsername);
+            if (match) {
+              if (match.isLocked) {
+                localStorage.removeItem(SESSION_KEY);
+                setCurrentUser(null);
+              } else {
+                setCurrentUser(match);
+              }
+            } else if (loggedUsername.toLowerCase() === 'admin') {
+              const existingAdmin = localUsersList.find((u) => u.username.toLowerCase() === 'admin');
+              if (existingAdmin) {
+                setCurrentUser(existingAdmin);
+              } else {
+                const defaultAdmin: User = {
+                  username: 'admin',
+                  password: 'admin123',
+                  points: 99999,
+                  unlockedProducts: [],
+                };
+                localUsersList.push(defaultAdmin);
+                localStorage.setItem('local_users', JSON.stringify(localUsersList));
+                setCurrentUser(defaultAdmin);
+              }
+            } else {
+              localStorage.removeItem(SESSION_KEY);
+              setCurrentUser(null);
+            }
+          }
+
+          // 2. Fallback products
+          const storedProds = localStorage.getItem('local_products');
+          if (storedProds) {
+            let parsedList: Product[] = JSON.parse(storedProds);
+            parsedList = parsedList.map((p) => {
+              if (p.id === 7 && (!p.image || !p.image.includes('1568515045052-f9a854d70bfd'))) {
+                return {
+                  ...p,
+                  image: 'https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?auto=format&fit=crop&w=900&q=80',
+                };
+              }
+              return p;
+            });
+            setProducts(parsedList);
+            localStorage.setItem('local_products', JSON.stringify(parsedList));
           } else {
-            setCurrentUser(match);
-          }
-        } else if (loggedUsername.toLowerCase() === 'admin') {
-          const defaultAdmin: User = {
-            username: 'admin',
-            password: 'admin123',
-            points: 99999,
-            unlockedProducts: [],
-          };
-          setCurrentUser(defaultAdmin);
-        } else {
-          localStorage.removeItem(SESSION_KEY);
-          setCurrentUser(null);
-        }
-      }
-
-      // 2. Load products from localStorage or defaults
-      const storedProds = localStorage.getItem('local_products');
-      if (storedProds) {
-        let parsedList: Product[] = JSON.parse(storedProds);
-        parsedList = parsedList.map((p) => {
-          if (p.id === 7 && (!p.image || !p.image.includes('1568515045052-f9a854d70bfd'))) {
-            return {
+            const seededProds = defaultProducts.map((p) => ({
               ...p,
-              image: 'https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?auto=format&fit=crop&w=900&q=80',
-            };
+              prompt: maskPrompt(p.prompt),
+              articles: p.articles?.map((art) => ({
+                ...art,
+                prompt: maskPrompt(art.prompt),
+              })),
+            }));
+            setProducts(seededProds);
+            localStorage.setItem('local_products', JSON.stringify(seededProds));
           }
-          return p;
-        });
-        setProducts(parsedList);
-        localStorage.setItem('local_products', JSON.stringify(parsedList));
-      } else {
-        const seededProds = defaultProducts.map((p) => ({
-          ...p,
-          prompt: maskPrompt(p.prompt),
-          articles: p.articles?.map((art) => ({
-            ...art,
-            prompt: maskPrompt(art.prompt),
-          })),
-        }));
-        setProducts(seededProds);
-        localStorage.setItem('local_products', JSON.stringify(seededProds));
-      }
 
-      // 3. Load categories from localStorage or defaults
-      const storedCats = localStorage.getItem('local_categories');
-      if (storedCats) {
-        setCategories(JSON.parse(storedCats));
-      } else {
-        setCategories(defaultCategories);
-        localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
-      }
+          // 3. Fallback categories
+          const storedCats = localStorage.getItem('local_categories');
+          if (storedCats) {
+            setCategories(JSON.parse(storedCats));
+          } else {
+            setCategories(defaultCategories);
+            localStorage.setItem('local_categories', JSON.stringify(defaultCategories));
+          }
+
+          // 4. Fallback payments
+          const storedPayments = localStorage.getItem('local_payments');
+          if (storedPayments) {
+            setPaymentRequests(JSON.parse(storedPayments));
+          }
+        });
       return;
     }
 
@@ -279,6 +343,141 @@ export default function App() {
     };
   }, [currentUser?.username]);
 
+  // --- Local Cross-Tab Synchronizer & Real-time Server Sync Poller ---
+  useEffect(() => {
+    if (isFirebaseConfigured) return;
+
+    // 1. Storage event listener for identical computer multi-tab sync
+    const handleStorageChange = (e: StorageEvent) => {
+      const targetKeys = [
+        SESSION_KEY,
+        'local_users',
+        'local_products',
+        'local_categories',
+        'local_payments',
+      ];
+      if (e.key && !targetKeys.includes(e.key)) return;
+
+      const loggedUsername = localStorage.getItem(SESSION_KEY);
+      const storedUsers = localStorage.getItem('local_users');
+      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+
+      if (loggedUsername) {
+        const existingAdmin = localUsersList.find((u) => u.username.toLowerCase() === 'admin');
+        const match = localUsersList.find((u) => u.username === loggedUsername) || 
+                      (loggedUsername.toLowerCase() === 'admin' ? (existingAdmin || {
+                        username: 'admin',
+                        password: 'admin123',
+                        points: 99999,
+                        unlockedProducts: [],
+                      }) : null);
+
+        if (match) {
+          if ('isLocked' in match && match.isLocked) {
+            localStorage.removeItem(SESSION_KEY);
+            setCurrentUser(null);
+          } else {
+            setCurrentUser(match as User);
+          }
+        } else {
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+
+      setUsers(localUsersList);
+
+      const storedProds = localStorage.getItem('local_products');
+      if (storedProds) {
+        setProducts(JSON.parse(storedProds));
+      }
+
+      const storedCats = localStorage.getItem('local_categories');
+      if (storedCats) {
+        setCategories(JSON.parse(storedCats));
+      }
+
+      const storedPayments = localStorage.getItem('local_payments');
+      if (storedPayments) {
+        setPaymentRequests(JSON.parse(storedPayments));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // 2. Periodic Server State Sync (allows mobile & desktop to dynamically keep each other aligned perfectly)
+    const intervalId = setInterval(() => {
+      fetch('/api/db')
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((dbData) => {
+          if (dbData.products && dbData.products.length > 0) {
+            setProducts((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dbData.products)) {
+                localStorage.setItem('local_products', JSON.stringify(dbData.products));
+                return dbData.products;
+              }
+              return prev;
+            });
+          }
+          if (dbData.categories && dbData.categories.length > 0) {
+            setCategories((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dbData.categories)) {
+                localStorage.setItem('local_categories', JSON.stringify(dbData.categories));
+                return dbData.categories;
+              }
+              return prev;
+            });
+          }
+          if (dbData.paymentRequests) {
+            setPaymentRequests((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dbData.paymentRequests)) {
+                localStorage.setItem('local_payments', JSON.stringify(dbData.paymentRequests));
+                return dbData.paymentRequests;
+              }
+              return prev;
+            });
+          }
+          if (dbData.users) {
+            setUsers((prev) => {
+              if (JSON.stringify(prev) !== JSON.stringify(dbData.users)) {
+                localStorage.setItem('local_users', JSON.stringify(dbData.users));
+                return dbData.users;
+              }
+              return prev;
+            });
+
+            const loggedUsername = localStorage.getItem(SESSION_KEY);
+            if (loggedUsername) {
+              const match = dbData.users.find((u: User) => u.username === loggedUsername);
+              if (match) {
+                if (match.isLocked) {
+                  localStorage.removeItem(SESSION_KEY);
+                  setCurrentUser(null);
+                } else {
+                  setCurrentUser((prev) => {
+                    if (!prev || prev.username !== match.username || prev.points !== match.points || JSON.stringify(prev.unlockedProducts) !== JSON.stringify(match.unlockedProducts) || prev.isLocked !== match.isLocked) {
+                      return match;
+                    }
+                    return prev;
+                  });
+                }
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(intervalId);
+    };
+  }, [isFirebaseConfigured]);
+
   // --- Shopping Cart handler controls ---
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -342,6 +541,13 @@ export default function App() {
         updatedList.push(updatedUser);
       }
       localStorage.setItem('local_users', JSON.stringify(updatedList));
+
+      // Sync to backend, but don't force block user actions on temporary network drops
+      fetch('/api/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedUser)
+      }).catch(err => console.error('Failed syncing unlock user status:', err));
       return;
     }
 
@@ -370,6 +576,13 @@ export default function App() {
       localStorage.setItem('local_payments', JSON.stringify(updatedList));
       setPaymentRequests(updatedList);
       setCart([]);
+
+      // Post to backend
+      fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(freshRequest)
+      }).catch(err => console.error('Failed submitting payment request helper:', err));
       return;
     }
 
@@ -391,22 +604,49 @@ export default function App() {
     }
 
     if (!isFirebaseConfigured) {
-      const storedUsers = localStorage.getItem('local_users');
-      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
-      if (localUsersList.some(u => u.username.toLowerCase() === payload.username.toLowerCase())) {
-        return false;
+      try {
+        const res = await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.success) {
+          if (data.error && data.error.includes('duplicate')) {
+            return false;
+          }
+          alert(data.error || 'Lỗi đăng ký!');
+          return false;
+        }
+
+        // Keep local cache up to date
+        const storedUsers = localStorage.getItem('local_users');
+        const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        localUsersList.push(data.user);
+        localStorage.setItem('local_users', JSON.stringify(localUsersList));
+
+        setCurrentUser(data.user);
+        localStorage.setItem(SESSION_KEY, data.user.username);
+        return true;
+      } catch (err) {
+        console.error('Registration server sync failed, switching to local cache:', err);
+        const storedUsers = localStorage.getItem('local_users');
+        const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        if (localUsersList.some(u => u.username.toLowerCase() === payload.username.toLowerCase())) {
+          return false;
+        }
+        const newUser: User = {
+          username: payload.username,
+          password: payload.password,
+          points: 100,
+          unlockedProducts: [],
+        };
+        localUsersList.push(newUser);
+        localStorage.setItem('local_users', JSON.stringify(localUsersList));
+        setCurrentUser(newUser);
+        localStorage.setItem(SESSION_KEY, newUser.username);
+        return true;
       }
-      const newUser: User = {
-        username: payload.username,
-        password: payload.password,
-        points: 100, // Give free starter points
-        unlockedProducts: [],
-      };
-      localUsersList.push(newUser);
-      localStorage.setItem('local_users', JSON.stringify(localUsersList));
-      setCurrentUser(newUser);
-      localStorage.setItem(SESSION_KEY, newUser.username);
-      return true;
     }
 
     try {
@@ -437,15 +677,48 @@ export default function App() {
     // 1. Double check default admin panel bypass credentials
     if (payload.username.toLowerCase() === 'admin' && payload.password === 'admin123') {
       if (!isFirebaseConfigured) {
-        const defaultAdmin: User = {
-          username: 'admin',
-          password: 'admin123',
-          points: 99999, // Admin starting points balance
-          unlockedProducts: [],
-        };
-        setCurrentUser(defaultAdmin);
-        localStorage.setItem(SESSION_KEY, defaultAdmin.username);
-        return true;
+        try {
+          // Force fetch latest state to guarantee consistency
+          const res = await fetch('/api/db');
+          const dbData = await res.json();
+          const serverUsers: User[] = dbData.users || [];
+          const existingAdmin = serverUsers.find(u => u.username.toLowerCase() === 'admin');
+          const adminToUse = existingAdmin || {
+            username: 'admin',
+            password: 'admin123',
+            points: 99999,
+            unlockedProducts: [],
+          };
+          
+          if (!existingAdmin) {
+            await fetch('/api/users/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(adminToUse)
+            });
+          }
+
+          setCurrentUser(adminToUse);
+          localStorage.setItem(SESSION_KEY, adminToUse.username);
+          return true;
+        } catch (e) {
+          const storedUsers = localStorage.getItem('local_users');
+          const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+          const existingAdmin = localUsersList.find(u => u.username.toLowerCase() === 'admin');
+          const adminToUse = existingAdmin || {
+            username: 'admin',
+            password: 'admin123',
+            points: 99999, // Admin starting points balance
+            unlockedProducts: [],
+          };
+          if (!existingAdmin) {
+            localUsersList.push(adminToUse);
+            localStorage.setItem('local_users', JSON.stringify(localUsersList));
+          }
+          setCurrentUser(adminToUse);
+          localStorage.setItem(SESSION_KEY, adminToUse.username);
+          return true;
+        }
       }
       try {
         const adminRef = doc(db, 'users', 'admin');
@@ -473,19 +746,37 @@ export default function App() {
     }
 
     if (!isFirebaseConfigured) {
-      const storedUsers = localStorage.getItem('local_users');
-      const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
-      const match = localUsersList.find(u => u.username === payload.username);
-      if (!match || match.password !== payload.password) return false;
+      try {
+        // Fetch to confirm up-to-date credential database
+        const res = await fetch('/api/db');
+        const dbData = await res.json();
+        const serverUsers: User[] = dbData.users || [];
+        const match = serverUsers.find(u => u.username === payload.username);
+        if (!match || match.password !== payload.password) return false;
 
-      if (match.isLocked) {
-        alert('Tài khoản của bạn hiện đã bị khóa truy cập bởi quản trị viên! Vui lòng liên hệ hỗ trợ hoặc fanpage.');
-        return false;
+        if (match.isLocked) {
+          alert('Tài khoản của bạn hiện đã bị khóa truy cập bởi quản trị viên! Vui lòng liên hệ hỗ trợ hoặc fanpage.');
+          return false;
+        }
+
+        setCurrentUser(match);
+        localStorage.setItem(SESSION_KEY, match.username);
+        return true;
+      } catch (e) {
+        const storedUsers = localStorage.getItem('local_users');
+        const localUsersList: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        const match = localUsersList.find(u => u.username === payload.username);
+        if (!match || match.password !== payload.password) return false;
+
+        if (match.isLocked) {
+          alert('Tài khoản của bạn hiện đã bị khóa truy cập bởi quản trị viên! Vui lòng liên hệ hỗ trợ hoặc fanpage.');
+          return false;
+        }
+
+        setCurrentUser(match);
+        localStorage.setItem(SESSION_KEY, match.username);
+        return true;
       }
-
-      setCurrentUser(match);
-      localStorage.setItem(SESSION_KEY, match.username);
-      return true;
     }
 
     try {
@@ -541,6 +832,14 @@ export default function App() {
           setCurrentUser(updatedUser);
         }
       }
+
+      // 3. Post to server API
+      fetch('/api/payments/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId })
+      }).catch(err => console.error('Failed calling approve payment API:', err));
+
       return;
     }
 
@@ -586,6 +885,13 @@ export default function App() {
         if (currentUser && currentUser.username === username) {
           setCurrentUser(updatedUser);
         }
+
+        // Post to server
+        fetch('/api/users/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        }).catch(err => console.error('Failed calling user points adjust API:', err));
       }
       return;
     }
@@ -628,6 +934,13 @@ export default function App() {
             setCurrentUser(updatedUser);
           }
         }
+
+        // Post to server
+        fetch('/api/users/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUser)
+        }).catch(err => console.error('Failed calling custom lock toggle API:', err));
       }
       return;
     }
@@ -682,6 +995,11 @@ export default function App() {
     );
 
     if (!isFirebaseConfigured) {
+      fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(securedProd)
+      }).catch((err) => console.error('Failed calling products save API:', err));
       return;
     }
 
@@ -704,6 +1022,9 @@ export default function App() {
     setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
 
     if (!isFirebaseConfigured) {
+      fetch(`/api/products/${productId}`, {
+        method: 'DELETE'
+      }).catch((err) => console.error('Failed calling products delete API:', err));
       return;
     }
 
@@ -729,6 +1050,9 @@ export default function App() {
     setCart([]);
 
     if (!isFirebaseConfigured) {
+      fetch('/api/products/reset', {
+        method: 'POST'
+      }).catch((err) => console.error('Failed calling products reset API:', err));
       return;
     }
 
@@ -764,7 +1088,18 @@ export default function App() {
     localStorage.setItem('local_categories', JSON.stringify(updatedCats));
 
     if (!isFirebaseConfigured) {
-      return true;
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newCat)
+        });
+        const d = await res.json();
+        return d.success;
+      } catch (err) {
+        console.error('Failed registering new category server-side:', err);
+        return true;
+      }
     }
 
     try {
@@ -797,6 +1132,9 @@ export default function App() {
     localStorage.setItem('local_products', JSON.stringify(updatedProds));
 
     if (!isFirebaseConfigured) {
+      fetch(`/api/categories/${catSlug}`, {
+        method: 'DELETE'
+      }).catch((err) => console.error('Failed deleting category server-side:', err));
       return;
     }
 
@@ -833,6 +1171,9 @@ export default function App() {
     localStorage.setItem('local_products', JSON.stringify(updatedProds));
 
     if (!isFirebaseConfigured) {
+      fetch('/api/categories/reset', {
+        method: 'POST'
+      }).catch((err) => console.error('Failed categories reset API:', err));
       return;
     }
 
